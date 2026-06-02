@@ -145,6 +145,7 @@ Snapshot of a billing period for an organization.
 | totalSpend | decimal | |
 | reportData | jsonb | Full breakdown: per-tool spend, usage, categories |
 | pdfUrl | string | nullable; Vercel Blob URL |
+| status | enum | `generating`, `ready`, `pdf_failed` |
 | generatedAt | timestamp | |
 
 ---
@@ -173,9 +174,9 @@ Each tool card displays:
 
 Per-tool rules with three trigger types:
 
-- **Threshold high** — fire when usage reaches N% of limit (e.g., 80%)
-- **Threshold low** — fire when usage is below N% (e.g., tool barely used — under 10%)
-- **Unused** — fire when there has been no activity for N days
+- **Threshold high** — fire when `creditsUsed / creditLimit` reaches N% or above (e.g., 80% of credits consumed).
+- **Threshold low** — fire when `creditsUsed / creditLimit` is below N% at the time of the check (e.g., under 10% used — tool is underutilised). Evaluated once per cooldown window to avoid repeated firing at the start of a billing period.
+- **Unused** — fire when no `UsageSnapshot` in the last N days shows an increase in `creditsUsed` compared to the previous snapshot (i.e., zero net new usage recorded).
 
 Each rule targets one or both notification channels. A cooldown period (default 24h) prevents the same rule from firing repeatedly.
 
