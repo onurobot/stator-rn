@@ -1,0 +1,8 @@
+// vercel.ts
+export const config = {
+  crons: [
+    { path: '/api/cron/sync',           schedule: '0 * * * *' },
+    { path: '/api/cron/alerts',         schedule: '0 * * * *' },
+    { path: '/api/cron/monthly-report', schedule: '0 0 1 * *' },
+  ],
+} as const;
