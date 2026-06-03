@@ -1,5 +1,5 @@
-import { StatorApp } from "./stator/app-shell";
+import { redirect } from 'next/navigation';
 
 export default function Home() {
-  return <StatorApp />;
+  redirect('/dashboard');
 }
