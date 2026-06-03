@@ -8,7 +8,9 @@ import { sendAlertWhatsApp }           from '@/lib/notifications/whatsapp';
 import { canUseWhatsApp }              from '@/lib/stripe';
 
 function authorized(req: NextRequest): boolean {
-  return req.headers.get('authorization') === `Bearer ${process.env.CRON_SECRET}`;
+  const secret = process.env.CRON_SECRET;
+  if (!secret) throw new Error('CRON_SECRET environment variable is not set');
+  return req.headers.get('authorization') === `Bearer ${secret}`;
 }
 
 function buildMessage(
@@ -94,25 +96,29 @@ export async function GET(req: NextRequest) {
       let fallbackUsed = false;
 
       if (channel === 'email') {
-        // TODO: Replace placeholder with owner email fetched from Clerk SDK
-        const result = await sendAlertEmail({
-          to:          owner.whatsappPhone ?? 'owner@example.com', // placeholder — email lives in Clerk
-          toolName:    rule.toolName,
-          triggerType: rule.triggerType,
-          message,
-        });
-        success = result.success;
+        if (!owner.email) {
+          // Email not yet stored for this user — skip rather than send to wrong address.
+          // Email is populated when the user signs up via the Clerk webhook.
+          console.warn(`Skipping email alert for owner ${owner.id}: no email stored`);
+        } else {
+          const result = await sendAlertEmail({
+            to:          owner.email,
+            toolName:    rule.toolName,
+            triggerType: rule.triggerType,
+            message,
+          });
+          success = result.success;
+        }
       }
 
       if (channel === 'whatsapp' && canUseWhatsApp(rule.orgPlan)) {
         if (owner.whatsappOptedIn && owner.whatsappPhone) {
           const result = await sendAlertWhatsApp({ to: owner.whatsappPhone, message });
           success = result.success;
-          if (!result.success) {
-            // Fallback to email
-            // TODO: Replace placeholder with owner email fetched from Clerk SDK
+          if (!result.success && owner.email) {
+            // Fallback to email when WhatsApp delivery fails
             const fb = await sendAlertEmail({
-              to:          owner.whatsappPhone, // placeholder — email lives in Clerk
+              to:          owner.email,
               toolName:    rule.toolName,
               triggerType: rule.triggerType,
               message,

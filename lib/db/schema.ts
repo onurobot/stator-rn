@@ -1,6 +1,6 @@
 import {
   pgTable, uuid, text, timestamp, boolean,
-  integer, decimal, date, pgEnum, jsonb, index
+  integer, decimal, date, pgEnum, jsonb, index, unique
 } from 'drizzle-orm/pg-core';
 
 export const planEnum       = pgEnum('plan',        ['free', 'pro', 'team']);
@@ -27,6 +27,7 @@ export const users = pgTable('users', {
   clerkId:         text('clerk_id').notNull().unique(),
   organizationId:  uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   role:            userRoleEnum('role').notNull().default('member'),
+  email:           text('email'),
   whatsappPhone:   text('whatsapp_phone'),
   whatsappOptedIn: boolean('whatsapp_opted_in').notNull().default(false),
 }, t => ({ clerkIdx: index('users_clerk_id_idx').on(t.clerkId) }));
@@ -92,4 +93,7 @@ export const monthlyReports = pgTable('monthly_reports', {
   pdfUrl:         text('pdf_url'),
   status:         reportStatusEnum('status').notNull().default('generating'),
   generatedAt:    timestamp('generated_at').notNull().defaultNow(),
-});
+}, t => ({
+  // Prevent duplicate reports for the same org+period on cron retries
+  uniquePeriod: unique('monthly_reports_org_period_unique').on(t.organizationId, t.periodStart),
+}));

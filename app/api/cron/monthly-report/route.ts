@@ -9,7 +9,9 @@ import { put }                         from '@vercel/blob';
 import React                           from 'react';
 
 function authorized(req: NextRequest): boolean {
-  return req.headers.get('authorization') === `Bearer ${process.env.CRON_SECRET}`;
+  const secret = process.env.CRON_SECRET;
+  if (!secret) throw new Error('CRON_SECRET environment variable is not set');
+  return req.headers.get('authorization') === `Bearer ${secret}`;
 }
 
 export async function GET(req: NextRequest) {

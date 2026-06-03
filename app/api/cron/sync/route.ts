@@ -7,7 +7,9 @@ import { decrypt }        from '@/lib/crypto';
 import { syncFrequency }  from '@/lib/stripe';
 
 function authorized(req: NextRequest): boolean {
-  return req.headers.get('authorization') === `Bearer ${process.env.CRON_SECRET}`;
+  const secret = process.env.CRON_SECRET;
+  if (!secret) throw new Error('CRON_SECRET environment variable is not set');
+  return req.headers.get('authorization') === `Bearer ${secret}`;
 }
 
 export async function GET(req: NextRequest) {
