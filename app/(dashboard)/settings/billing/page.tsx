@@ -1,33 +1,19 @@
-import { db }           from '@/lib/db';
-import { auth }         from '@clerk/nextjs/server';
-import { organizations, users } from '@/lib/db/schema';
-import { eq }           from 'drizzle-orm';
-import { redirect }     from 'next/navigation';
-import { Badge }        from '@/components/ui/badge';
+import { db }              from '@/lib/db';
+import { getOrCreateUser } from '@/lib/ensure-user';
+import { organizations }   from '@/lib/db/schema';
+import { eq }              from 'drizzle-orm';
+import { Badge }           from '@/components/ui/badge';
 
 export default async function BillingPage() {
-  const { userId } = await auth();
-  if (!userId) redirect('/sign-in');
+  const { orgId, plan } = await getOrCreateUser();
 
-  const rows = await db
-    .select({
-      plan:             organizations.plan,
-      stripeCustomerId: organizations.stripeCustomerId,
-      orgId:            organizations.id,
-    })
-    .from(users)
-    .innerJoin(organizations, eq(users.organizationId, organizations.id))
-    .where(eq(users.clerkId, userId))
-    .limit(1);
-  if (!rows[0]) redirect('/sign-in');
+  const [org] = await db.select({
+    stripeCustomerId: organizations.stripeCustomerId,
+  })
+  .from(organizations)
+  .where(eq(organizations.id, orgId));
 
-  const { plan, stripeCustomerId } = rows[0];
-
-  const planLabels: Record<string, string> = {
-    free: 'Free',
-    pro:  'Pro',
-    team: 'Team',
-  };
+  const planLabels: Record<string, string> = { free: 'Free', pro: 'Pro', team: 'Team' };
 
   return (
     <div className="space-y-6 max-w-md">
@@ -42,14 +28,10 @@ export default async function BillingPage() {
             Upgrade to Pro for unlimited tools, hourly sync, WhatsApp alerts, and PDF exports.
           </p>
         )}
-        {stripeCustomerId ? (
-          <p className="text-sm text-muted-foreground">
-            To manage your subscription, visit the Stripe billing portal.
-          </p>
+        {org?.stripeCustomerId ? (
+          <p className="text-sm text-muted-foreground">To manage your subscription, visit the Stripe billing portal.</p>
         ) : (
-          <p className="text-sm text-muted-foreground">
-            No active subscription found.
-          </p>
+          <p className="text-sm text-muted-foreground">No active subscription found.</p>
         )}
       </div>
     </div>

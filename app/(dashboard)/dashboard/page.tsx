@@ -1,30 +1,18 @@
 import { db }        from '@/lib/db';
-import { auth }      from '@clerk/nextjs/server';
-import { connectedTools, usageSnapshots, users } from '@/lib/db/schema';
+import { getOrCreateUser } from '@/lib/ensure-user';
+import { connectedTools, usageSnapshots } from '@/lib/db/schema';
 import { eq, desc }  from 'drizzle-orm';
-import { redirect }  from 'next/navigation';
 import { OverviewStats }         from '@/components/dashboard/overview-stats';
 import { SpendByCategoryChart }  from '@/components/dashboard/spend-by-category-chart';
 import { ToolsNearLimit }        from '@/components/dashboard/tools-near-limit';
 import { InactiveTools }         from '@/components/dashboard/inactive-tools';
 
 export default async function DashboardPage() {
-  const { userId } = await auth();
-  if (!userId) redirect('/sign-in');
-
-  // Get org for this user
-  const userRows = await db
-    .select({ organizationId: users.organizationId })
-    .from(users)
-    .where(eq(users.clerkId, userId))
-    .limit(1);
-  if (!userRows[0]) redirect('/sign-in');
-  const orgId = userRows[0].organizationId;
+  const { orgId } = await getOrCreateUser();
 
   const tools = await db.select().from(connectedTools)
     .where(eq(connectedTools.organizationId, orgId));
 
-  // Fetch latest snapshot per tool
   const toolData = await Promise.all(tools.map(async tool => {
     const snaps = await db.select().from(usageSnapshots)
       .where(eq(usageSnapshots.connectedToolId, tool.id))
@@ -50,8 +38,8 @@ export default async function DashboardPage() {
   const inactive = toolData
     .filter(({ snap }) => !snap || new Date(snap.recordedAt) < sevenDaysAgo)
     .map(({ tool, snap }) => ({
-      id:          tool.id,
-      name:        tool.displayName,
+      id:           tool.id,
+      name:         tool.displayName,
       daysSinceUse: snap
         ? Math.floor((Date.now() - new Date(snap.recordedAt).getTime()) / (1000 * 60 * 60 * 24))
         : 999,

@@ -1,27 +1,12 @@
-import { db }           from '@/lib/db';
-import { auth }         from '@clerk/nextjs/server';
-import { monthlyReports, users, organizations } from '@/lib/db/schema';
-import { eq, desc }     from 'drizzle-orm';
-import { redirect }     from 'next/navigation';
-import { canExportPdf } from '@/lib/stripe';
-import { ReportCard }   from '@/components/reports/report-card';
+import { db }              from '@/lib/db';
+import { getOrCreateUser } from '@/lib/ensure-user';
+import { monthlyReports }  from '@/lib/db/schema';
+import { eq, desc }        from 'drizzle-orm';
+import { canExportPdf }    from '@/lib/stripe';
+import { ReportCard }      from '@/components/reports/report-card';
 
 export default async function ReportsPage() {
-  const { userId } = await auth();
-  if (!userId) redirect('/sign-in');
-
-  const userRows = await db
-    .select({
-      organizationId: users.organizationId,
-      plan:           organizations.plan,
-    })
-    .from(users)
-    .innerJoin(organizations, eq(users.organizationId, organizations.id))
-    .where(eq(users.clerkId, userId))
-    .limit(1);
-  if (!userRows[0]) redirect('/sign-in');
-
-  const { organizationId: orgId, plan } = userRows[0];
+  const { orgId, plan } = await getOrCreateUser();
 
   const reports = await db.select().from(monthlyReports)
     .where(eq(monthlyReports.organizationId, orgId))

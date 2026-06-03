@@ -1,23 +1,13 @@
 import Link from 'next/link';
-import { db }         from '@/lib/db';
-import { auth }       from '@clerk/nextjs/server';
-import { connectedTools, usageSnapshots, users } from '@/lib/db/schema';
-import { eq, desc }   from 'drizzle-orm';
-import { redirect }   from 'next/navigation';
-import { Button }     from '@/components/ui/button';
-import { ToolCard }   from '@/components/tools/tool-card';
+import { db }               from '@/lib/db';
+import { getOrCreateUser }  from '@/lib/ensure-user';
+import { connectedTools, usageSnapshots } from '@/lib/db/schema';
+import { eq, desc }         from 'drizzle-orm';
+import { Button }           from '@/components/ui/button';
+import { ToolCard }         from '@/components/tools/tool-card';
 
 export default async function ToolsPage() {
-  const { userId } = await auth();
-  if (!userId) redirect('/sign-in');
-
-  const userRows = await db
-    .select({ organizationId: users.organizationId })
-    .from(users)
-    .where(eq(users.clerkId, userId))
-    .limit(1);
-  if (!userRows[0]) redirect('/sign-in');
-  const orgId = userRows[0].organizationId;
+  const { orgId } = await getOrCreateUser();
 
   const tools = await db.select().from(connectedTools)
     .where(eq(connectedTools.organizationId, orgId));
@@ -34,7 +24,7 @@ export default async function ToolsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Tools</h1>
-        <Button render={<Link href="/tools/new" />}>+ Connect Tool</Button>
+        <Button nativeButton={false} render={<Link href="/tools/new" />}>+ Connect Tool</Button>
       </div>
       {toolsWithSnap.length === 0 && (
         <p className="text-muted-foreground">No tools connected yet. Add your first tool to get started.</p>
